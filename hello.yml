@@ -1,6 +1,7 @@
 # First Play
 - name: Play - Handle Files in all hosts
   hosts: all
+  become: yes #change access level, so all tasks have the same priviledge 
   tasks:
   - name: all host are identified with a file
     copy:
@@ -49,3 +50,35 @@
     command: forever start /node-app/app.js
     when: "forever_list.stdout.find('/node-app/app.js') == -1"
 
+- name: Play - Install and configure Nginx as a Loadbalancer
+  hosts: loadbalancer #want nginx downloaded in the localhost
+  become: yes
+  tasks:
+    - name: Update cache
+      apt: #to download linux modules, apt for ubuntu based
+        update_cache: yes
+
+    - name: Install Nginx
+      apt:
+        name: nginx
+        state: present #latest version of the image
+    
+    - name: Copy the Nginx config file to /etc/nginx/sites-available
+      copy:             #copy source file to dest file
+        src: nginx.cfg
+        dest: /etc/nginx/sites-available/nginx.cfg
+      notify: Restart Nginx     #call handler to do its tasks
+
+    - name: Create symlink of the config file at /etc/nginx/sites-enabled #create a link in the dest that points to the src
+
+      file:
+        src: /etc/nginx/sites-available/nginx.cfg
+        dest: /etc/nginx/sites-enabled/default # "default" makes sure the link is put in the correct file
+        state: link
+      notify: Restart Nginx
+
+  handlers: # only runs ONCE if it is called
+    - name: Restart Nginx
+      service:
+        name: nginx
+        state: restarted
